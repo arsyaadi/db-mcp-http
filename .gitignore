@@ -1,0 +1,7 @@
+node_modules/
+.env
+.DS_Store
+*.mcpb
+/db-mcp*
+# Your real guide pack (business knowledge) lives here; never commit it to this repo.
+/guide/

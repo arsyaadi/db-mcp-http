@@ -1,0 +1,62 @@
+{
+  "manifest_version": "0.3",
+  "name": "db-remote",
+  "display_name": "Database (Remote)",
+  "version": "0.1.0",
+  "description": "Ask questions about your data in plain language. Read-only: data cannot be changed.",
+  "author": {
+    "name": "Arsya"
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/server/index.js"
+      ],
+      "env": {
+        "MCP_URL": "${user_config.url}",
+        "MCP_TOKEN": "${user_config.token}"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "get_guide",
+      "description": "Guide for this data: flows, status meanings, formulas, how to analyze."
+    },
+    {
+      "name": "list_tables",
+      "description": "List the available data."
+    },
+    {
+      "name": "describe_table",
+      "description": "Show the columns of one table."
+    },
+    {
+      "name": "query",
+      "description": "Fetch data to answer a question (read-only)."
+    }
+  ],
+  "compatibility": {
+    "runtimes": {
+      "node": ">=18.0.0"
+    }
+  },
+  "user_config": {
+    "url": {
+      "type": "string",
+      "title": "Server URL",
+      "description": "Full MCP server address, e.g. http://127.0.0.1:3333/mcp",
+      "required": true
+    },
+    "token": {
+      "type": "string",
+      "title": "Access Token",
+      "description": "Token from the admin.",
+      "sensitive": true,
+      "required": true
+    }
+  }
+}
