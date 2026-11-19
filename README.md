@@ -45,11 +45,53 @@ All domain knowledge lives in the guide folder (`GUIDE_DIR`), read at startup:
 - `reminder.md`: appended to every query result (instructions fade in long chats).
 - `NN-*.md`: sections returned by `get_guide`, joined in filename order (a new section = a new numbered file).
 
-`guide.example/` is a template with the generic answer/query rules filled in and the domain sections left as placeholders. `guide/` is git-ignored: keep each real pack in its own private repo (or anywhere on the server) and point `GUIDE_DIR` at it.
+`guide.example/` is a template with the generic answer/query rules filled in and the domain sections left as placeholders. To fill one from an app's source code, see [Build a guide pack from source code](#build-a-guide-pack-from-source-code). `guide/` is git-ignored: keep each real pack in its own private repo (or anywhere on the server) and point `GUIDE_DIR` at it.
 
 Never write which environment the DB is in: it comes from `DB_ENV`. Write environment-specific rules as conditions ("if the database environment is dev: ...").
 
 Update = edit the files, then restart the service; no rebuild.
+
+## Build a guide pack from source code
+
+The `guide-builder` Claude Code skill (`.claude/skills/guide-builder/`) drafts a pack from the app's source repos and the live database. Every fact it writes cites a `file:line` or a query result; what it cannot prove becomes an open question for you instead of a guess.
+
+**You need**
+
+- Claude Code, started from this repo (the skill is project-scoped).
+- The source repos cloned locally with an `origin` remote: the app (business rules) and, if any, the reports service (official formulas).
+- This server running against the database and connected in Claude Code (see [Connect](#connect)). The skill reads the schema, indexes and status values through it.
+
+**First build**
+
+```bash
+cp -r guide.example /path/to/my-pack
+```
+
+```bash
+claude --add-dir /path/to/my-pack --add-dir /path/to/app-api --add-dir /path/to/app-reports
+```
+
+Then in Claude Code:
+
+```text
+/guide-builder pack: /path/to/my-pack, sources: /path/to/app-api, /path/to/app-reports
+```
+
+1. **Branches.** For each repo the skill proposes the production and dev branch (from `origin/HEAD` and recent commits) and waits for you to confirm. Your answer is saved in `<pack>/sources.md`; later runs use it without asking. It reads code from a temporary worktree of `origin/<production>`, so your checkout and uncommitted work are untouched.
+2. **Drafting.** It surveys the database, splits the tables into business domains and reads each domain's code in parallel subagents. On a large codebase this is the long, token-heavy part.
+3. **Review.** It writes the sections plus `<pack>/review.md`:
+   - **Open questions**: answer them in chat, or edit the section file and delete the question.
+   - **Weak facts**: check them with the app or a teammate.
+   - **Formula checks**: fill in the "App report" column from the app's report screen; a mismatch means the formula is wrong.
+   - **Evidence**: where each fact came from, for spot checks.
+4. **Team knowledge and playbook** cannot come from code: write those sections yourself, or give the skill your notes.
+5. Deploy the pack (`GUIDE_DIR`) and restart the service.
+
+**Updates**
+
+Run `/guide-builder` again with the same pack. With `Last read` set in `sources.md`, it diffs `origin/<production>` since that commit and rewrites only the affected sections; text you wrote by hand stays as is. Features on the dev branch but not yet in production are marked "dev only", and the mark is removed once they ship.
+
+`sources.md` and `review.md` live in the pack folder but are never served to clients.
 
 ## Run
 

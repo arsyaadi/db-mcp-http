@@ -15,6 +15,7 @@ Check before committing: no client/company names, client table names or client b
 - `NN-*.md` → joined in filename order. Section headings are `## N. Title`; `TestGuideSectionsInOrder` checks sections 1..7 in `guide.example`, so adding a template section means bumping that loop.
 - The environment comes from `DB_ENV` (prefixed to instructions and guide at startup). Packs write env-specific rules as conditions ("if the database environment is dev: ...").
 - Guide edits need a restart, never a rebuild.
+- `sources.md` and `review.md` in a pack belong to the `guide-builder` skill (`.claude/skills/guide-builder/`) and are never served, because `loadGuide` reads only `instructions.md`, `reminder.md` and `[0-9]*.md`. Changing that glob or the template's section roles means updating the skill too.
 
 ## Safety layers (`server/guard.go`, `server/main.go`)
 
