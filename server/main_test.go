@@ -7,7 +7,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	if err := loadGuide("../guide.example"); err != nil {
+	if err := loadGuide("guide.example"); err != nil {
 		panic(err)
 	}
 	blockTables("settings,password_resets,personal_access_tokens,api_logs")
@@ -27,7 +27,7 @@ func TestBlockTablesAndLoadGuide(t *testing.T) {
 			t.Errorf("empty built-in slot: want error naming GUIDE_DIR, got %v", err)
 		}
 	}
-	if err := loadGuide("../guide.example"); err != nil { // restore the template for the other tests
+	if err := loadGuide("guide.example"); err != nil { // restore the template for the other tests
 		t.Fatal(err)
 	}
 }

@@ -18,7 +18,7 @@ cp .env.example .env
 openssl rand -hex 32        # paste as MCP_TOKEN in .env
 ```
 
-Then give it a guide pack (your own domain knowledge, started from `guide.example/`), one of two ways:
+Then give it a guide pack (your own domain knowledge, started from `server/guide.example/`), one of two ways:
 
 - Built in: copy the pack's served files (`instructions.md`, `reminder.md`, `[0-9]*.md`) into `server/guide/` and build.
 - On disk: keep the pack as a folder and set `GUIDE_DIR` in `.env`.
@@ -49,7 +49,7 @@ All domain knowledge lives in the guide pack, built into the binary from `server
 - `reminder.md`: appended to every query result (instructions fade in long chats).
 - `NN-*.md`: sections returned by `get_guide`, joined in filename order (a new section = a new numbered file).
 
-`guide.example/` is a template with the generic answer/query rules filled in and the domain sections left as placeholders. To fill one from an app's source code, see [Build a guide pack from source code](#build-a-guide-pack-from-source-code). `server/guide/` (the build slot) is git-ignored except its README: keep each real pack in its own private repo and never commit it here.
+`server/guide.example/` is a template with the generic answer/query rules filled in and the domain sections left as placeholders. To fill one from an app's source code, see [Build a guide pack from source code](#build-a-guide-pack-from-source-code). `server/guide/` (the build slot) is git-ignored except its README: keep each real pack in its own private repo and never commit it here.
 
 Never write which environment the DB is in: it comes from `DB_ENV`. Write environment-specific rules as conditions ("if the database environment is dev: ...").
 
@@ -80,7 +80,7 @@ The `guide-builder` Claude Code skill (`.claude/skills/guide-builder/`) drafts a
 **First build**
 
 ```bash
-cp -r guide.example /path/to/my-pack   # or ~/.claude/skills/guide-builder/template
+cp -r server/guide.example /path/to/my-pack   # or ~/.claude/skills/guide-builder/template
 ```
 
 ```bash
@@ -193,5 +193,5 @@ Share the `.mcpb` file; users double-click it in Claude Desktop and enter the UR
 ## Dev
 
 ```bash
-go test ./...               # SQL guard, formatting, .env, guide loading and HTTP auth tests (loads ../guide.example)
+go test ./...               # SQL guard, formatting, .env, guide loading and HTTP auth tests (loads server/guide.example)
 ```

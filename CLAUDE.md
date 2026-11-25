@@ -4,7 +4,7 @@ Generic read-only MySQL MCP server. Setup, env vars, deploy and connect steps: `
 
 ## Boundary: engine vs guide pack
 
-The Go code is domain-agnostic. Every business fact (system name, tables, statuses, formulas, answer language, number format) belongs in a guide pack, never in `server/*.go`, `mcpb/`, `.env.example` or this repo's history. `guide.example/` is the only pack committed here: a template with generic rules and `<...>` placeholders. `server/guide/` is the build slot (embedded into the binary): git-ignored except its README, never commit a real pack there. `/guide/` is git-ignored too; real packs live in their own private repos.
+The Go code is domain-agnostic. Every business fact (system name, tables, statuses, formulas, answer language, number format) belongs in a guide pack, never in `server/*.go`, `mcpb/`, `.env.example` or this repo's history. `server/guide.example/` is the only pack committed here: a template with generic rules and `<...>` placeholders. `server/guide/` is the build slot (embedded into the binary): git-ignored except its README, never commit a real pack there. `/guide/` is git-ignored too; real packs live in their own private repos.
 
 Check before committing: no client/company names, client table names or client business terms in code, tests or docs. Tests use generic names (`users`, `orders`, `api_logs`).
 
@@ -12,10 +12,10 @@ Check before committing: no client/company names, client table names or client b
 
 - `instructions.md` → MCP server instructions. Stay under 4096 chars (Claude Code truncates there, and a cut text looks complete). Its job is to make the model call `get_guide` first; the guide itself goes only through `get_guide`.
 - `reminder.md` → appended to every `query`/`list_tables`/`describe_table` result, because server instructions fade in long chats.
-- `NN-*.md` → joined in filename order. Section headings are `## N. Title`; `TestGuideSectionsInOrder` checks sections 1..7 in `guide.example`, so adding a template section means bumping that loop.
+- `NN-*.md` → joined in filename order. Section headings are `## N. Title`; `TestGuideSectionsInOrder` checks sections 1..7 in `server/guide.example`, so adding a template section means bumping that loop.
 - The environment comes from `DB_ENV` (prefixed to instructions and guide at startup). Packs write env-specific rules as conditions ("if the database environment is dev: ...").
 - A built-in pack (`server/guide/`) needs a rebuild after edits; a `GUIDE_DIR` pack needs only a restart. The embed glob `guide/*.md` takes every `.md` in the slot, so copy only the served files there.
-- `sources.md` and `review.md` in a pack belong to the `guide-builder` skill (`.claude/skills/guide-builder/`, whose `template/` links to `guide.example/`; installed user-level by `install-skills.sh`) and are never served, because `loadGuide` reads only `instructions.md`, `reminder.md` and `[0-9]*.md`. Changing that glob, the template's files or its section roles means updating the skill too.
+- `sources.md` and `review.md` in a pack belong to the `guide-builder` skill (`.claude/skills/guide-builder/`, whose `template/` links to `server/guide.example/`; installed user-level by `install-skills.sh`) and are never served, because `loadGuide` reads only `instructions.md`, `reminder.md` and `[0-9]*.md`. Changing that glob, the template's files or its section roles means updating the skill too.
 
 ## Safety layers (`server/guard.go`, `server/main.go`)
 
@@ -51,4 +51,4 @@ Single `main` package, stdlib first, no abstractions with one implementation. De
 go vet ./server && go test ./...
 ```
 
-`TestMain` loads `../guide.example`, so a broken template fails the suite.
+`TestMain` loads `server/guide.example`, so a broken template fails the suite.
