@@ -8,16 +8,20 @@ Tools (all read-only): `get_guide` (the guide pack), `list_tables`, `describe_ta
 
 ## Requirements
 
-- Go ≥ 1.25 to build (the server it runs on needs the binary plus the guide folder)
+- Go ≥ 1.25 to build (the server it runs on needs only the binary and `.env` when the pack is built in, or the binary plus a pack folder with `GUIDE_DIR`)
 - A MySQL user (ideally `SELECT` only)
 
 ## Setup
 
 ```bash
 cp .env.example .env
-cp -r guide.example guide   # then fill in your own domain knowledge
 openssl rand -hex 32        # paste as MCP_TOKEN in .env
 ```
+
+Then give it a guide pack (your own domain knowledge, started from `guide.example/`), one of two ways:
+
+- Built in: copy the pack's served files (`instructions.md`, `reminder.md`, `[0-9]*.md`) into `server/guide/` and build.
+- On disk: keep the pack as a folder and set `GUIDE_DIR` in `.env`.
 
 Fill `.env`:
 
@@ -32,24 +36,24 @@ Fill `.env`:
 | `DB_ENV` | yes | `dev` or `production`. Told to Claude at the top of the server instructions and of `get_guide`, so the guide never hardcodes it. |
 | `DB_NAME`, `DB_USER`, `DB_PASSWORD` | user + password yes | Database login. |
 | `MCP_NAME` | no | Server name shown to clients, default `db-mcp`. |
-| `GUIDE_DIR` | no | Guide pack folder, default `guide` (relative to the working directory). |
+| `GUIDE_DIR` | no | Empty = the pack built into the binary from `server/guide/`. Set = read that folder at startup instead (relative to the working directory). |
 | `BLOCKED_TABLES` | yes (may be empty) | Comma-separated app tables whose rows are secrets. MySQL system schemas are always blocked. |
 
 `.env` is read from the working directory; variables already set in the environment win. The server refuses to start if a required value is missing and prints which one.
 
 ## Guide pack
 
-All domain knowledge lives in the guide folder (`GUIDE_DIR`), read at startup:
+All domain knowledge lives in the guide pack, built into the binary from `server/guide/` or read from the `GUIDE_DIR` folder at startup:
 
 - `instructions.md`: MCP server instructions. Keep under 4096 chars (clients truncate) and tell the model to call `get_guide` first.
 - `reminder.md`: appended to every query result (instructions fade in long chats).
 - `NN-*.md`: sections returned by `get_guide`, joined in filename order (a new section = a new numbered file).
 
-`guide.example/` is a template with the generic answer/query rules filled in and the domain sections left as placeholders. To fill one from an app's source code, see [Build a guide pack from source code](#build-a-guide-pack-from-source-code). `guide/` is git-ignored: keep each real pack in its own private repo (or anywhere on the server) and point `GUIDE_DIR` at it.
+`guide.example/` is a template with the generic answer/query rules filled in and the domain sections left as placeholders. To fill one from an app's source code, see [Build a guide pack from source code](#build-a-guide-pack-from-source-code). `server/guide/` (the build slot) is git-ignored except its README: keep each real pack in its own private repo and never commit it here.
 
 Never write which environment the DB is in: it comes from `DB_ENV`. Write environment-specific rules as conditions ("if the database environment is dev: ...").
 
-Update = edit the files, then restart the service; no rebuild.
+Update: a built-in pack needs a rebuild and redeploy; a `GUIDE_DIR` pack needs only an edit and a restart, no rebuild (handy for hotfixes). A deployment that relied on the old default `guide` folder without setting `GUIDE_DIR` must now set `GUIDE_DIR=guide`.
 
 ## Build a guide pack from source code
 
@@ -57,14 +61,26 @@ The `guide-builder` Claude Code skill (`.claude/skills/guide-builder/`) drafts a
 
 **You need**
 
-- Claude Code, started from this repo (the skill is project-scoped).
+- Claude Code with the skill installed user-level, so it works from any folder. From a clone:
+
+  ```bash
+  ./install-skills.sh
+  ```
+
+  Without one:
+
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/arsyaadi/db-mcp-http/main/install-skills.sh | sh
+  ```
+
+  Re-run either to update.
 - The source repos cloned locally with an `origin` remote: the app (business rules) and, if any, the reports service (official formulas).
 - This server running against the database and connected in Claude Code (see [Connect](#connect)). The skill reads the schema, indexes and status values through it.
 
 **First build**
 
 ```bash
-cp -r guide.example /path/to/my-pack
+cp -r guide.example /path/to/my-pack   # or ~/.claude/skills/guide-builder/template
 ```
 
 ```bash
@@ -85,11 +101,21 @@ Then in Claude Code:
    - **Formula checks**: fill in the "App report" column from the app's report screen; a mismatch means the formula is wrong.
    - **Evidence**: where each fact came from, for spot checks.
 4. **Team knowledge and playbook** cannot come from code: write those sections yourself, or give the skill your notes.
-5. Deploy the pack (`GUIDE_DIR`) and restart the service.
+5. Deploy: copy the served files into `server/guide/`, rebuild and redeploy; or point `GUIDE_DIR` at the pack folder and restart the service.
 
 **Updates**
 
 Run `/guide-builder` again with the same pack. With `Last read` set in `sources.md`, it diffs `origin/<production>` since that commit and rewrites only the affected sections; text you wrote by hand stays as is. Features on the dev branch but not yet in production are marked "dev only", and the mark is removed once they ship.
+
+**Audit**
+
+To check whether an existing pack (hand-written, or built before the code moved on) still matches production, ask for an audit:
+
+```text
+/guide-builder audit, pack: /path/to/my-pack
+```
+
+It splits every section into atomic claims, groups them by business domain and checks each domain in a parallel subagent against `origin/<production>` and the database: `Valid`, `Outdated` (with the current truth and its evidence), `Conflict` (two sections disagree), `Unverified`, or `Missing` (in production or the database but not in the pack). Independent checker subagents then re-open the evidence of every non-`Valid` row and a sample of the `Valid` ones. Results go to the audit table in `<pack>/review.md`; the section files and `sources.md` are not touched. Then run an update, which fixes the `Outdated`, `Conflict` and `Missing` rows; hand-written text changes only after you confirm.
 
 `sources.md` and `review.md` live in the pack folder but are never served to clients.
 
@@ -103,13 +129,13 @@ With SSH, the tunnel opens on the first query and reconnects by itself if it dro
 
 ## Deploy
 
-One process per database: same binary, its own folder with `.env` + guide pack, its own port and systemd unit.
+One process per database: same binary, its own folder with `.env` (+ a pack folder if you use `GUIDE_DIR`), its own port and systemd unit.
 
-Build for the server on your machine, copy the binary and the guide pack, put `.env` (and the SSH key, if used) next to it:
+Build for the server on your machine with the pack in `server/guide/`, copy the binary, put `.env` (and the SSH key, if used) next to it. With `GUIDE_DIR` instead, copy the pack folder too (`scp -r db-mcp <pack> ...`) and set `GUIDE_DIR` to it:
 
 ```bash
 GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o db-mcp ./server
-scp -r db-mcp guide <server>:/opt/<name>-db-mcp/
+scp db-mcp <server>:/opt/<name>-db-mcp/
 ```
 
 Keep it running with systemd (`/etc/systemd/system/<name>-db-mcp.service`, then `sudo systemctl enable --now <name>-db-mcp`):

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"database/sql"
+	"embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -26,14 +27,24 @@ const maxRows = 200
 // DB-side cap (sql_select_limit) for a SELECT without LIMIT: stops pulling a whole big table, keeps the count exact up to here.
 const countRows = 1000
 
-// Domain knowledge lives only in GUIDE_DIR: instructions.md, reminder.md, and NN-*.md sections joined in filename order.
-// Edit and restart, no rebuild.
+// Domain knowledge lives only in the guide pack: instructions.md, reminder.md, and NN-*.md sections joined in filename order.
+// Built into the binary from server/guide (the slot, git-ignored except its README); GUIDE_DIR overrides it with a folder on disk (edit and restart, no rebuild).
 var instructions, note, guide string
+
+// Embeds every .md in the slot, so copy only the served files there (not sources.md/review.md). README.md guarantees a match on an empty slot.
+//
+//go:embed guide/*.md
+var builtinGuide embed.FS
 
 // Guide only via get_guide: clients truncate long instructions (Claude Code at 4096 chars), and a cut guide looks complete.
 // note (reminder.md) is repeated on every result: server instructions alone fade in long chats.
+// dir "" = the built-in pack.
 func loadGuide(dir string) error {
-	fsys := os.DirFS(dir)
+	var fsys fs.FS = os.DirFS(dir)
+	if dir == "" {
+		fsys, _ = fs.Sub(builtinGuide, "guide") // valid path, cannot fail
+		dir = "built-in server/guide (empty? copy a pack there and rebuild, or set GUIDE_DIR)"
+	}
 	read := func(name string) (string, error) {
 		b, err := fs.ReadFile(fsys, name)
 		s := strings.TrimSpace(string(b))
@@ -374,7 +385,7 @@ func call(ctx context.Context, name string, raw json.RawMessage) *mcp.CallToolRe
 
 func main() {
 	loadEnv(".env")
-	if err := loadGuide(getenv("GUIDE_DIR", "guide")); err != nil {
+	if err := loadGuide(os.Getenv("GUIDE_DIR")); err != nil {
 		fail(err.Error())
 	}
 	if _, ok := os.LookupEnv("BLOCKED_TABLES"); !ok {
