@@ -59,23 +59,41 @@ Update: a built-in pack needs a rebuild and redeploy; a `GUIDE_DIR` pack needs o
 
 The `guide-builder` Claude Code skill (`.claude/skills/guide-builder/`) drafts a pack from the app's source repos and the live database. Every fact it writes cites a `file:line` or a query result; what it cannot prove becomes an open question for you instead of a guess.
 
-**You need**
+**Before you run it**
 
-- Claude Code with the skill installed user-level, so it works from any folder. From a clone:
+1. **Install the skill** user-level, so it works from any folder. From a clone:
 
-  ```bash
-  ./install-skills.sh
-  ```
+   ```bash
+   ./install-skills.sh
+   ```
 
-  Without one:
+   Without one:
 
-  ```bash
-  curl -fsSL https://raw.githubusercontent.com/arsyaadi/db-mcp-http/main/install-skills.sh | sh
-  ```
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/arsyaadi/db-mcp-http/main/install-skills.sh | sh
+   ```
 
-  Re-run either to update.
-- The source repos cloned locally with an `origin` remote: the app (business rules) and, if any, the reports service (official formulas).
-- This server running against the database and connected in Claude Code (see [Connect](#connect)). The skill reads the schema, indexes and status values through it.
+   Re-run either to update.
+
+2. **Connect this server for that database first.** The skill reads the schema, indexes and status values through `list_tables`, `describe_table` and `query`; without them it stops, because status codes cannot be verified from code alone. See [Connect](#connect), and check:
+   - It shows as connected in the session where you run the skill (`/mcp`). `claude mcp add` defaults to the folder you ran it in: add it with `--scope user`, or from the folder you start `claude` in.
+   - Only one db-mcp server per database is connected, or tell the skill which one to use.
+   - Production if you can. `DB_ENV` is right: dev data is weak evidence (test rows, values that exist only in dev code).
+
+3. **Fill `sources.md`: the source of truth for which code is production.** One row per repo, in `<pack>/sources.md` (the template has the columns and an example). The skill proposes the rows it is missing and waits for your answer, but it only knows git, not your deploy:
+   - **Production** is the branch actually deployed, as named on `origin`. Often not `main`/`master`: ask whoever deploys. A wrong branch makes every fact in the pack wrong.
+   - **Dev** is the branch with unreleased features (used for "dev only" marks). Leave it empty if there is none, or if it is older than production.
+   - **Role**: `app` (statuses, flows), `reports` (official formulas, the ones users compare against), `other` (UI labels and names).
+   - **Path** is relative to the pack folder, not to where you run `claude`.
+   - **Last read** stays empty for a repo the pack has not read yet; the skill fills it with the SHA it read. Set it by hand only to adopt a hand-written pack: the last production commit on or before the day it was checked, so the next run diffs from there instead of rewriting everything.
+
+4. **Repos are cloned locally with a working `origin`.** The skill runs `git fetch origin` and reads `origin/<production>` from a temporary worktree, so the production branch must be pushed and fetchable; your local branch and uncommitted changes are ignored. A production branch with no commit in ~90 days makes it stop and ask.
+
+5. **Open everything in one session**: `--add-dir` the pack folder and every repo in `sources.md` (below), so it does not stop for permissions mid-run.
+
+6. **Bring the team knowledge** code cannot give: notes, chat exports, past decisions, known data quirks, how the team reads its own reports. Without it, the team knowledge and playbook sections stay placeholders.
+
+7. **Budget for it.** A first build on a large codebase runs up to ~8 subagents in parallel plus checkers on the session's model: long and token-heavy. Updates read only what changed since `Last read`.
 
 **First build**
 
@@ -93,6 +111,8 @@ Then in Claude Code:
 /guide-builder pack: /path/to/my-pack, sources: /path/to/app-api, /path/to/app-reports
 ```
 
+`sources:` is only for repos not yet in `<pack>/sources.md` (an empty template, or a repo you are adding). If you filled the rows yourself, `/guide-builder pack: /path/to/my-pack` is enough: the skill reads the repos from `sources.md`.
+
 1. **Branches.** For each repo the skill proposes the production and dev branch (from `origin/HEAD` and recent commits) and waits for you to confirm. Your answer is saved in `<pack>/sources.md`; later runs use it without asking. It reads code from a temporary worktree of `origin/<production>`, so your checkout and uncommitted work are untouched.
 2. **Drafting.** It surveys the database, splits the tables into business domains and reads each domain's code in parallel subagents. On a large codebase this is the long, token-heavy part.
 3. **Review.** It writes the sections plus `<pack>/review.md`:
@@ -102,6 +122,18 @@ Then in Claude Code:
    - **Evidence**: where each fact came from, for spot checks.
 4. **Team knowledge and playbook** cannot come from code: write those sections yourself, or give the skill your notes.
 5. Deploy: copy the served files into `server/guide/`, rebuild and redeploy; or point `GUIDE_DIR` at the pack folder and restart the service.
+
+**Things to watch**
+
+- **Do not let it guess.** A status meaning, formula or branch you are not sure of stays an open question until someone who knows answers it. One wrong status name spreads into every answer.
+- **Formula checks are the real test.** Compute the 2–3 most-used metrics for one month and compare with the app's report screen before anyone uses the pack.
+- **`review.md` is overwritten every run.** Answer its questions (or copy them out) before the next run.
+- **No secrets or personal data in the pack.** The skill greps for them; check again before committing. Keep the pack in its own private repo, never in this one.
+- **No environment in the text.** `DB_ENV` adds it at startup; rules that differ per environment are written as conditions.
+- **`instructions.md` under 4096 chars.** Clients cut it there, and the cut text looks complete.
+- **Copy only served files** (`instructions.md`, `reminder.md`, `[0-9]*.md`) into `server/guide/`; `sources.md` and `review.md` stay with the pack.
+- **Interrupted run?** It may leave temporary worktrees behind: `git -C <repo> worktree list`, then `git worktree remove <path>`.
+- **Keep it current.** Re-run update after each production release, or audit when you are unsure what moved.
 
 **Updates**
 
