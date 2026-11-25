@@ -91,6 +91,16 @@ Then in Claude Code:
 
 Run `/guide-builder` again with the same pack. With `Last read` set in `sources.md`, it diffs `origin/<production>` since that commit and rewrites only the affected sections; text you wrote by hand stays as is. Features on the dev branch but not yet in production are marked "dev only", and the mark is removed once they ship.
 
+**Audit**
+
+To check whether an existing pack (hand-written, or built before the code moved on) still matches production, ask for an audit:
+
+```text
+/guide-builder audit, pack: /path/to/my-pack
+```
+
+It splits every section into atomic claims, groups them by business domain and checks each domain in a parallel subagent against `origin/<production>` and the database: `Valid`, `Outdated` (with the current truth and its evidence), `Conflict` (two sections disagree), `Unverified`, or `Missing` (in production or the database but not in the pack). Independent checker subagents then re-open the evidence of every non-`Valid` row and a sample of the `Valid` ones. Results go to the audit table in `<pack>/review.md`; the section files and `sources.md` are not touched. Then run an update, which fixes the `Outdated`, `Conflict` and `Missing` rows; hand-written text changes only after you confirm.
+
 `sources.md` and `review.md` live in the pack folder but are never served to clients.
 
 ## Run

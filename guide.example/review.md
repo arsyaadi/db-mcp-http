@@ -7,10 +7,18 @@ How to use it:
 1. Answer each open question: reply to the skill in chat, or write the answer into the section file yourself and delete the question here.
 2. Spot-check weak facts against the app or a teammate.
 3. Evidence is for review only: open the file:line or rerun the query when a fact in the pack looks wrong.
+4. After an audit: confirm each Outdated, Conflict and Missing row, then run the skill in update mode, which takes them into its scope.
 Then restart the db-mcp service so the reviewed pack is served.
 -->
 
-Run: <date> · Mode: <build | update> · Sources: <repo@sha, ...>
+Run: <date> · Mode: <build | update | audit> · Sources: <repo@sha, ...>
+
+## Audit
+
+<!-- Audit mode only: every claim in the pack checked against production code and the database. Verdict: Outdated | Conflict | Missing | Unverified | Valid, in that order. Below the table: the lines skipped as answering style. -->
+
+| Section | Claim | Verdict | Current truth | Evidence |
+|---|---|---|---|---|
 
 ## Open questions
 
