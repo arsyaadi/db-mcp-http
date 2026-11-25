@@ -5,3 +5,6 @@ node_modules/
 /db-mcp*
 # Your real guide pack (business knowledge) lives here; never commit it to this repo.
 /guide/
+# Build slot: copy a pack's served files into server/guide/ before building; only its README is tracked.
+/server/guide/*
+!/server/guide/README.md

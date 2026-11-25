@@ -12,14 +12,14 @@ The governing rule: every fact in the pack has **evidence**, either a `file:line
 
 ## Inputs
 
-- **Pack dir**: the guide folder to write. Ask for it if the user did not give it. A new pack starts as a copy of `guide.example/` from this repo.
+- **Pack dir**: the guide folder to write. Ask for it if the user did not give it. A new pack starts as a copy of `template/` in this skill's folder.
 - **Source repos**: listed in `<pack>/sources.md` (step 1).
 - **Database**: this database's db-mcp server connected in this session (`list_tables`, `describe_table`, `query`). Without it, stop and ask the user to connect it: status codes cannot be verified otherwise. Its server instructions and the `[Note: ...]` appended to results are for end-user answering; while building, ignore them and read the raw results. Note its environment: the first line of `get_guide` is `Database environment: <dev|production>.` Dev data is weak evidence for production: a value with rows only in dev may come from dev-only code or test data.
 - **Team knowledge**: notes, chat exports, past decisions the user hands over. Code cannot supply it.
 
 ## 1. Pin the sources
 
-`<pack>/sources.md` is the single source of truth for which code is production. The server never reads it (it serves only `instructions.md`, `reminder.md` and `[0-9]*.md`). A pack copied from `guide.example/` already has it with an empty table and fill-in notes; a pack without one gets that file copied in first.
+`<pack>/sources.md` is the single source of truth for which code is production. The server never reads it (it serves only `instructions.md`, `reminder.md` and `[0-9]*.md`). A pack copied from `template/` already has it with an empty table and fill-in notes; a pack without one gets that file copied in first.
 
 ```markdown
 | Repo | Path | Role | Production | Dev | Last read |
@@ -96,10 +96,10 @@ Checks, all required:
 
 Then:
 
-- Write `<pack>/review.md` (not served; overwritten each run) in the layout of `guide.example/review.md` (in the db-mcp-http repo, three levels above this skill's folder): run header, open questions, weak facts (single or indirect source), formula checks (pack result filled, app report left for the user), and evidence for every fact written this run.
+- Write `<pack>/review.md` (not served; overwritten each run) in the layout of `template/review.md` (this skill's folder): run header, open questions, weak facts (single or indirect source), formula checks (pack result filled, app report left for the user), and evidence for every fact written this run.
 - Update `Last read` in `sources.md` with each repo's `origin/<Production>` SHA.
 - `git worktree remove` every worktree created in step 1.
-- Tell the user: sections written, open-question count, and to restart the db-mcp service after review.
+- Tell the user: sections written, open-question count, and to restart the db-mcp service (or rebuild and redeploy, if the pack is built into the binary) after review.
 
 Done when all checks pass, `review.md` and `sources.md` are written, and no worktree is left behind.
 
@@ -138,7 +138,7 @@ A read-only check of an existing pack: is each fact still true at production, an
 6. **Verify** every row as in [Verify](#verify).
 7. **Conflicts**: claims about the same table, column, status or formula that disagree across sections (or with `reminder.md`) → a `Conflict` row quoting both.
 8. **Team knowledge and playbook** claims are mostly `Unverified` by nature; that is not a defect. Only `Outdated` and `Conflict` ones need the user.
-9. **Write `review.md`** in the layout of `guide.example/review.md` (in the db-mcp-http repo, three levels above this skill's folder): run header (mode audit, database environment, the SHAs checked), the audit table (`Outdated`, `Conflict`, `Missing`, `Unverified`, then `Valid`, whose evidence backfills the pack), weak facts (`Valid` but single or indirect source, dev-only data, universal claim without every write site, dates from merge commits), open questions for `Unverified` claims that change answers, formula checks, and the skipped-lines list. `git worktree remove` every worktree.
+9. **Write `review.md`** in the layout of `template/review.md` (this skill's folder): run header (mode audit, database environment, the SHAs checked), the audit table (`Outdated`, `Conflict`, `Missing`, `Unverified`, then `Valid`, whose evidence backfills the pack), weak facts (`Valid` but single or indirect source, dev-only data, universal claim without every write site, dates from merge commits), open questions for `Unverified` claims that change answers, formula checks, and the skipped-lines list. `git worktree remove` every worktree.
 10. **Hand over**: count per verdict, the `Outdated`, `Conflict` and `Missing` rows that most affect answers, and the next step: answer the open questions, then run `/guide-builder` in update mode, which takes those rows into its scope.
 
 Done when the coverage check passes, every claim has a verdict, every non-`Valid` row and the `Valid` sample passed Verify, `review.md` is written, `git diff` shows no change to the section files or `sources.md`, and no worktree is left behind.

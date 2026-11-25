@@ -22,6 +22,14 @@ func TestBlockTablesAndLoadGuide(t *testing.T) {
 	if loadGuide(t.TempDir()) == nil {
 		t.Error("empty guide dir accepted")
 	}
+	if _, err := os.Stat("guide/instructions.md"); err != nil { // slot as committed (README only), unless a dev filled it locally
+		if err := loadGuide(""); err == nil || !strings.Contains(err.Error(), "GUIDE_DIR") {
+			t.Errorf("empty built-in slot: want error naming GUIDE_DIR, got %v", err)
+		}
+	}
+	if err := loadGuide("../guide.example"); err != nil { // restore the template for the other tests
+		t.Fatal(err)
+	}
 }
 
 func TestFormatTruncation(t *testing.T) {
